@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A* Algorytm</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f0f0f0;
+      }
+      .container {
+        text-align: center;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #333333;
+        font-size: 2rem;
+        margin-bottom: 10px;
+      }
+
+      h2 {
+        color: #666666;
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+      }
+
+      .controls button,
+      .controls input[type="file"] {
+        font-size: 1rem;
+        margin: 5px;
+        padding: 10px 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .controls input[type="file"] {
+        padding: 5px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(20, 30px);
+        gap: 1px;
+        margin: 0 auto 20px;
+      }
+
+      .cell {
+        width: 30px;
+        height: 30px;
+        background-color: lightgray;
+        text-align: center;
+        border-radius: 3px;
+      }
+
+      .cell.start {
+        background-color: green;
+      }
+
+      .cell.end {
+        background-color: red;
+      }
+
+      .cell.path {
+        background-color: yellow;
+      }
+
+      .cell.visited {
+        background-color: lightblue;
+      }
+
+      .cell.obstacle {
+        background-color: black;
+      }
+
+      .stats {
+        font-size: 1rem;
+        margin-top: 20px;
+        color: #333333;
+      }
+
+      .stats p {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>A* Algorytm</h1>
+      <h2>By Mikita Vydrankou</h2>
+      <div class="controls">
+        <button id="manual-mode">Manual</button>
+        <label for="file-input">Upload Grid:</label>
+        <input type="file" id="file-input" />
+      </div>
+      <div id="grid" class="grid"></div>
+      <div class="controls">
+        <button id="start-algo">Start Algorithm</button>
+        <button id="save-file">Save as .txt</button>
+      </div>
+      <div class="stats">
+        <p>Visited Nodes: <span id="visited-nodes">0</span></p>
+        <p>Total Cost: <span id="total-cost">0</span></p>
+      </div>
+    </div>
+    <script>
+      const gridElement = document.getElementById("grid");
+      const fileInput = document.getElementById("file-input");
+      const manualModeButton = document.getElementById("manual-mode");
+      const saveFileButton = document.getElementById("save-file");
+      let grid = Array.from({ length: 20 }, () => Array(20).fill(0));
+      let start = null;
+      let end = null;
+
+      function renderGrid() {
+        gridElement.innerHTML = "";
+        for (let i = 0; i < 20; i++) {
+          for (let j = 0; j < 20; j++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.row = i;
+            cell.dataset.col = j;
+
+            if (grid[i][j] === 5) cell.classList.add("obstacle");
+            if (start && start[0] === i && start[1] === j)
+              cell.classList.add("start");
+            if (end && end[0] === i && end[1] === j) cell.classList.add("end");
+
+            cell.addEventListener("click", () => {
+              if (!start) {
+                start = [i, j];
+                renderGrid();
+              } else if (!end) {
+                end = [i, j];
+                renderGrid();
+              } else if (grid[i][j] === 0) {
+                grid[i][j] = 5;
+                renderGrid();
+              } else if (grid[i][j] === 5) {
+                grid[i][j] = 0;
+                renderGrid();
+              }
+            });
+
+            gridElement.appendChild(cell);
+          }
+        }
+      }
+
+      manualModeButton.addEventListener("click", () => {
+        grid = Array.from({ length: 20 }, () => Array(20).fill(0));
+        start = null;
+        end = null;
+        renderGrid();
+      });
+
+      fileInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result.trim();
+          grid = content
+            .split("\n")
+            .map((line) => line.trim().split(" ").map(Number));
+          start = null;
+          end = null;
+          renderGrid();
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById("start-algo").addEventListener("click", async () => {
+        if (!start || !end) {
+          alert("Please select a start and end point.");
+          return;
+        }
+
+        const response = await fetch("astar.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ grid, start, end, saveResult: false }),
+        });
+
+        const { path, visited } = await response.json();
+
+        path.forEach(([i, j]) => {
+          const cell = document.querySelector(
+            `.cell[data-row='${i}'][data-col='${j}']`
+          );
+          cell.classList.add("path");
+        });
+
+        visited.forEach(([i, j]) => {
+          const cell = document.querySelector(
+            `.cell[data-row='${i}'][data-col='${j}']`
+          );
+          if (!cell.classList.contains("path")) {
+            cell.classList.add("visited");
+          }
+        });
+
+        document.getElementById("path-steps").textContent = path.length;
+        document.getElementById("visited-nodes").textContent = visited.length;
+        document.getElementById("total-cost").textContent = path.length;
+      });
+
+      saveFileButton.addEventListener("click", async () => {
+        if (!start || !end) {
+          alert("Please run the algorithm first.");
+          return;
+        }
+
+        const response = await fetch("astar.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ grid, start, end, saveResult: true }),
+        });
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "astar_result.txt";
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+
+      renderGrid();
+    </script>
+  </body>
+</html>
