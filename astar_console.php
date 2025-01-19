@@ -2,22 +2,25 @@
 function aStar($grid, $start, $end) {
     $openList = [];
     $closedList = [];
+    $counter = 0;
 
     $openList[] = ["position" => $start, "g" => 0, "h" => heuristic($start, $end), "parent" => null];
     $visited = [];
 
     while (!empty($openList)) {
+        
         usort($openList, function($a, $b) {
             return ($a['g'] + $a['h']) <=> ($b['g'] + $b['h']);
         });
         $currentNode = array_shift($openList);
         $closedList[] = $currentNode;
         $visited[] = $currentNode['position'];
-
+        $counter++;
         if ($currentNode['position'] === $end) {
             return [
                 "path" => reconstructPath($currentNode),
-                "visited" => $visited
+                "visited" => $visited,
+                "steps" => $counter
             ];
         }
 
@@ -133,6 +136,8 @@ if ($result) {
     foreach ($grid as $row) {
         $content .= implode(" ", $row) . "\n";
     }
+
+    echo "Steps: \n" . $result["steps"] . "\n";
 
     $outputFile = __DIR__ . '/astar_result.txt';
     file_put_contents($outputFile, $content);
